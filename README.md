@@ -64,25 +64,28 @@ Open the app on [Streamlit Community Cloud](https://satellite-texture-analyzer.s
 
 <img width="1917" height="782" alt="image" src="https://github.com/user-attachments/assets/052209d7-9cc0-4804-aaa6-364376b85a3a" />
 
-### Uploaded satellite image and selected region
-
-<!-- Add screenshot here -->
-
 ### Panchromatic image and histogram equalization
 
-<!-- Add screenshot here -->
+<img width="1757" height="815" alt="image" src="https://github.com/user-attachments/assets/86e705a5-ee26-4818-a3b6-5688904078c7" />
+
+### Uploaded satellite image and selected region
+
+<img width="1096" height="783" alt="image" src="https://github.com/user-attachments/assets/360de036-2688-4185-8f7d-24201535fcac" />
 
 ### Texture patches and 5-level quantization
 
-<!-- Add screenshot here -->
+<img width="1182" height="476" alt="image" src="https://github.com/user-attachments/assets/073eba1b-3324-4dfc-8867-08078579b1de" />
+
 
 ### GLCM calculation
 
-<!-- Add screenshot here -->
+<img width="2000" height="679" alt="image" src="https://github.com/user-attachments/assets/90e3b6d6-c1a5-491e-85ee-b7797cb25a02" />
+
 
 ### Eigenvalue and class-distance charts
 
-<!-- Add screenshot here -->
+<img width="1565" height="796" alt="image" src="https://github.com/user-attachments/assets/715e60d4-21e8-4eaa-9aa6-c20938d22223" />
+<img width="1702" height="761" alt="image" src="https://github.com/user-attachments/assets/4282790b-9197-433c-a3f0-a00a0f39286a" />
 
 ## Conclusion
 
