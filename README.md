@@ -1,4 +1,5 @@
-<img width="375" height="327" alt="image" src="https://github.com/user-attachments/assets/c18f57ec-4648-4908-96b8-059c0e0d5872" />
+<img width="187" height="167" alt="image" src="https://github.com/user-attachments/assets/9b1dc471-5cc0-4c6f-96a2-9371f9b6372a" />
+
 
 ## Satellite-Texture-Analyzer
 
