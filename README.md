@@ -1,4 +1,6 @@
-# Satellite-Texture-Analyzer
+<img width="375" height="327" alt="image" src="https://github.com/user-attachments/assets/c18f57ec-4648-4908-96b8-059c0e0d5872" />
+
+## Satellite-Texture-Analyzer
 
 Satellite-Texture-Analyzer is a Streamlit app that analyzes satellite images and compares the textures of land-use and land-cover classes such as water, vegetation, built-up areas, and bare soil. It describes each texture using a **gray-level co-occurrence matrix (GLCM)**, which counts how often pairs of gray levels occur at a chosen pixel offset. The eigenvalues of these matrices provide features for comparing the selected classes.
 
