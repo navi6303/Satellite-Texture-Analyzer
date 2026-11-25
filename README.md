@@ -1,22 +1,89 @@
-# Satellite Texture Analyzer
+# Satellite-Texture-Analyzer
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the GitHub and Streamlit Community Cloud setup.
+Satellite-Texture-Analyzer is a Streamlit app that analyzes satellite images and compares the textures of land-use and land-cover classes such as water, vegetation, built-up areas, and bare soil. It describes each texture using a **gray-level co-occurrence matrix (GLCM)**, which counts how often pairs of gray levels occur at a chosen pixel offset. The eigenvalues of these matrices provide features for comparing the selected classes.
 
-Run `python -m pip install -r requirements.txt` and `python -m streamlit run app.py` from this directory. Run the suite with `python -m pytest -q`.
+## Problem Statement
 
-Upload the original image, confirm a subset, inspect its native pixel matrix, generate grayscale or panchromatic intensities, then equalize them. Draw or enter at least three texture windows per class on that subset.
+A satellite image can contain areas with similar brightness but different patterns. A water surface may look smooth, while a built-up area may show repeated edges and variations in brightness. Measuring these patterns gives a consistent way to compare selected areas and study differences in land cover.
 
-After analysis, open **Follow one patch** for the calculation, **Compare textures** for the bar charts, or **Checks and downloads** for the full report.
+## Objective
 
-The [analysis guide](satellite-texture-analysis/README.md) documents the controls, output filenames, and command to reproduce the supplied TCI run. [CHANGELOG.md](CHANGELOG.md) maps the changes to the eight audit findings.
+Extract texture features from selected satellite image patches and compare four land-cover classes using five class-level GLCM eigenvalues and the Euclidean distances between them.
 
+## About the Methodology
 
-On Windows with Python 3.12, use the same interpreter to install the dependencies and launch Streamlit.
+1. **Upload an image.** Load a satellite raster and inspect its bands and preview.
+2. **Select a region.** Confirm the part of the image that contains the land-cover classes you want to compare.
+3. **Generate an intensity image.** For a multiband satellite raster, the app averages the bands to create a panchromatic-like image. It uses weighted grayscale for standard RGB images and keeps the intensity values of single-band images.
+4. **Enhance the contrast.** Apply histogram equalization across the selected region.
+5. **Select texture patches.** Label four land-cover classes and confirm three representative, non-overlapping patches for each class.
+6. **Reduce to five gray levels.** With the default settings, the app maps each equalized patch to levels 0 through 4 using the same intensity bins.
+7. **Build the patch GLCMs.** For each patch, the app counts valid pixel pairs at the selected offsets and forms a symmetric, normalized 5 × 5 GLCM across the selected directions.
+8. **Combine the GLCMs by class.** Average the three normalized patch matrices element by element, giving each patch equal weight.
+9. **Extract the class eigenvalues.** Compute the five signed eigenvalues of each combined matrix to form one texture feature vector per class.
+10. **Compare the classes.** Calculate the six Euclidean distances directly between the four class vectors. The app displays eigenvalue charts and a class-distance chart that identifies the closest and farthest pairs for the current image.
 
-```powershell
-cd C:\SIP_PROJECT
-py -3.12 -m pip install -r requirements.txt
-py -3.12 -m streamlit run app.py
+## Tech Stack
+
+- **Python 3.12 and Streamlit** for the application.
+- **NumPy and pandas** for matrix calculations, eigenvalues, and result tables.
+- **Rasterio and Affine** for raster input and spatial coordinates.
+- **OpenCV and Pillow** for image operations and previews.
+- **Matplotlib** for charts, and **HTML, CSS, and JavaScript** for the region-selection canvas.
+- **scikit-learn** for optional validation checks and **pytest** for automated tests. The pinned dependencies are listed in [requirements.txt](requirements.txt).
+
+## Installation
+
+Install Python 3.12 and Git, then run these commands from a terminal:
+
+```bash
+git clone https://github.com/navi6303/Satellite-Texture-Analyzer.git
+cd Satellite-Texture-Analyzer
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
 ```
 
-The app uses NumPy for GLCM pair counting when scikit-image is absent. To enable the optional accelerator, run `py -3.12 -m pip install scikit-image`.
+Use Python 3.12 for both commands. On Windows, you can replace `python` with `py -3.12`.
+
+## Deployment
+
+Open the app on [Streamlit Community Cloud](https://satellite-texture-analyzer.streamlit.app/). See the [deployment guide](DEPLOYMENT.md) for setup details.
+
+## Usage
+
+1. Upload a satellite image, such as a GeoTIFF. For ENVI input, upload the header and its matching binary file. The app allows up to 400 MB per file.
+2. Draw and confirm a region on the original image, or choose **Use the whole image**.
+3. Select **Confirm Subset and Generate Panchromatic Image** or the corresponding grayscale button, then select **Enhance Contrast**.
+4. Name your four texture classes. Under **Sampling and gray levels**, keep **Complete user bounding boxes** selected. Draw and confirm three representative boxes per class.
+5. Select **Calculate GLCM & Eigenvalues**.
+6. Open **Follow one patch** to inspect the five-level image and the GLCM calculation. Use **Compare textures** to view the eigenvalue and distance charts, or **Checks and downloads** to save the results.
+
+## Screenshots
+
+### Application home page
+
+<img width="1917" height="782" alt="image" src="https://github.com/user-attachments/assets/052209d7-9cc0-4804-aaa6-364376b85a3a" />
+
+### Uploaded satellite image and selected region
+
+<!-- Add screenshot here -->
+
+### Panchromatic image and histogram equalization
+
+<!-- Add screenshot here -->
+
+### Texture patches and 5-level quantization
+
+<!-- Add screenshot here -->
+
+### GLCM calculation
+
+<!-- Add screenshot here -->
+
+### Eigenvalue and class-distance charts
+
+<!-- Add screenshot here -->
+
+## Conclusion
+
+The project demonstrates how satellite image textures can be measured and compared. Combining patch GLCMs gives each selected land-cover class a five-value texture signature, and the distance chart shows which classes have the most similar or different signatures in the analyzed image.
