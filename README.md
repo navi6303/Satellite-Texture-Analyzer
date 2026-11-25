@@ -47,7 +47,7 @@ Use Python 3.12 for both commands. On Windows, you can replace `python` with `py
 
 ## Deployment
 
-Open the app on [Streamlit Community Cloud](https://satellite-texture-analyzer.streamlit.app/).
+Open the app on [Satellite Texture Analyzer](https://satellite-texture-analyzer.streamlit.app/).
 
 ## Usage
 
