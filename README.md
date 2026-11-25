@@ -18,7 +18,7 @@ Extract texture features from selected satellite image patches and compare four 
 4. **Enhance the contrast.** Apply histogram equalization across the selected region.
 5. **Select texture patches.** Label four land-cover classes and confirm three representative, non-overlapping patches for each class.
 6. **Reduce to five gray levels.** With the default settings, the app maps each equalized patch to levels 0 through 4 using the same intensity bins.
-7. **Build the patch GLCMs.** For each patch, the app counts valid pixel pairs at the selected offsets and forms a symmetric, normalized 5 × 5 GLCM across the selected directions.
+7. **Build the patch GLCMs.** For each patch, the app counts valid pixel pairs at the selected offsets, normalized 5 × 5 GLCM across the selected directions.
 8. **Combine the GLCMs by class.** Average the three normalized patch matrices element by element, giving each patch equal weight.
 9. **Extract the class eigenvalues.** Compute the five signed eigenvalues of each combined matrix to form one texture feature vector per class.
 10. **Compare the classes.** Calculate the six Euclidean distances directly between the four class vectors. The app displays eigenvalue charts and a class-distance chart that identifies the closest and farthest pairs for the current image.
@@ -30,7 +30,7 @@ Extract texture features from selected satellite image patches and compare four 
 - **Rasterio and Affine** for raster input and spatial coordinates.
 - **OpenCV and Pillow** for image operations and previews.
 - **Matplotlib** for charts, and **HTML, CSS, and JavaScript** for the region-selection canvas.
-- **scikit-learn** for optional validation checks and **pytest** for automated tests. The pinned dependencies are listed in [requirements.txt](requirements.txt).
+- The pinned dependencies are listed in [requirements.txt](requirements.txt).
 
 ## Installation
 
@@ -47,7 +47,7 @@ Use Python 3.12 for both commands. On Windows, you can replace `python` with `py
 
 ## Deployment
 
-Open the app on [Streamlit Community Cloud](https://satellite-texture-analyzer.streamlit.app/). See the [deployment guide](DEPLOYMENT.md) for setup details.
+Open the app on [Streamlit Community Cloud](https://satellite-texture-analyzer.streamlit.app/).
 
 ## Usage
 
