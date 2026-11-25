@@ -1,0 +1,8 @@
+{
+  "exact_boxes": false,
+  "n": 5,
+  "crop_size": 64,
+  "block_size": 256,
+  "seed": 42,
+  "mode": "global_equalized_fixed5"
+}

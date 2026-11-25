@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    user-select: none;
+    color: #e2e8f0;
+  }
+  #toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 980px;
+    background: #1e293b;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+  }
+  .toolbar-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .btn {
+    padding: 6px 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #334155;
+    color: #f8fafc;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:hover:not(:disabled) { background: #475569; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn.active {
+    background: #2563eb;
+    border-color: #60a5fa;
+    color: #ffffff;
+  }
+  #btnConfirm { background: #16a34a; color: #fff; }
+  #btnConfirm:hover:not(:disabled) { background: #15803d; }
+  #btnClear   { background: #dc2626; color: #fff; }
+  #btnClear:hover:not(:disabled) { background: #b91c1c; }
+  #catBadge {
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  #wrapper {
+    position: relative;
+    border: 2px solid #334155;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #090d16;
+    display: block;
+    width: 100%;
+    max-width: 980px;
+    height: 560px;
+  }
+  canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  #statusbar {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 980px;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+    background: #1e293b;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #334155;
+  }
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-val {
+    color: #38bdf8;
+    font-weight: 600;
+    font-family: monospace;
+  }
+  #instrBox {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-align: center;
+    max-width: 980px;
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div class="toolbar-group">
+    <span id="catBadge">Loading...</span>
+    <button class="btn active" id="btnModeDraw" title="Draw Bounding Box">✏️ Draw</button>
+    <button class="btn" id="btnModePan" title="Pan image (or hold Space / drag with middle-click)">✋ Pan</button>
+  </div>
+
+  <div class="toolbar-group">
+    <button class="btn" id="btnZoomIn" title="Zoom In (or scroll up)">🔍+</button>
+    <button class="btn" id="btnZoomOut" title="Zoom Out (or scroll down)">🔍−</button>
+    <button class="btn" id="btnZoomReset" title="Reset View to 100%">↺ 100%</button>
+    <button class="btn" id="btnFit" title="Fit entire image in view">⛶ Fit</button>
+  </div>
+
+  <div class="toolbar-group">
+    <button class="btn" id="btnClear" title="Clear current selection">🗑 Clear</button>
+    <button class="btn" id="btnConfirm" disabled title="Confirm this bounding box">✅ Confirm Box</button>
+  </div>
+</div>
+
+<div id="wrapper">
+  <canvas id="bg"></canvas>
+  <canvas id="sel"></canvas>
+</div>
+
+<div id="statusbar">
+  <div class="status-item">
+    <span>Box Native:</span>
+    <span class="status-val" id="coordNative">—</span>
+  </div>
+  <div class="status-item">
+    <span>Dimensions:</span>
+    <span class="status-val" id="coordDims">—</span>
+  </div>
+  <div class="status-item">
+    <span>Zoom:</span>
+    <span class="status-val" id="zoomVal">100%</span>
+  </div>
+  <div class="status-item">
+    <span>Mode:</span>
+    <span class="status-val" id="modeVal">Draw</span>
+  </div>
+</div>
+
+<div id="instrBox">
+  💡 <b>Draw:</b> Click & drag to define a bounding box. Drag <b>corners / edges</b> to resize. Drag <b>inside</b> to reposition.
+  <b>Pan:</b> Toggle ✋ Pan, hold Space+drag, or drag with middle mouse. <b>Zoom:</b> Mouse wheel or 🔍 buttons.
+</div>
+
+<script>
+(function() {
+  // ─── Streamlit Protocol ───────────────────────────────────────────────────
+  let _args = {};
+  let _ready = false;
+
+  function sendValue(value) {
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: "streamlit:setComponentValue",
+      value: value,
+    }, "*");
+  }
+
+  function sendReady() {
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: "streamlit:componentReady",
+      apiVersion: 1,
+    }, "*");
+  }
+
+  function sendHeight() {
+    const h = document.body.scrollHeight + 15;
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: "streamlit:setFrameHeight",
+      height: Math.max(680, h),
+    }, "*");
+  }
+
+  window.addEventListener("message", function(event) {
+    if (!event.data || event.data.type !== "streamlit:render") return;
+    _args = event.data.args || {};
+    if (!_ready) {
+      _ready = true;
+      init(_args);
+    } else {
+      update(_args);
+    }
+    sendHeight();
+  });
+
+  // ─── Elements & Contexts ──────────────────────────────────────────────────
+  const wrapper = document.getElementById("wrapper");
+  const BG = document.getElementById("bg");
+  const SEL = document.getElementById("sel");
+  const bgCtx = BG.getContext("2d");
+  const selCtx = SEL.getContext("2d");
+
+  // State
+  let img = new Image();
+  let imgLoaded = false;
+  let cw = 1, ch = 1;         // Image native width/height in display pixels
+  let origW = 1, origH = 1;   // Original raster full-resolution dimensions
+  let viewW = 960, viewH = 560;
+
+  // View transform
+  let zoom = 1.0;
+  let panX = 0, panY = 0;
+
+  // Interaction mode: 'draw' | 'pan'
+  let currentMode = "draw";
+  let isSpacePressed = false;
+
+  // Category and styling
+  let activeCategory = "Unknown";
+  let activeColor = "#00b4d8";
+  let confirmedSelections = {}; // { cat: [{x, y, w, h}, ...] }
+  let categoryColors = {
+    "Water Bodies": "#00b4d8",
+    "Water": "#00b4d8",
+    "Vegetation": "#2dc653",
+    "Urban / Built-up Area": "#e63946",
+    "Built-up": "#e63946",
+    "Bare Soil": "#fca311",
+    "Bare land": "#fca311"
+  };
+
+  // Active Bounding Box in image coordinates: { left, top, right, bottom }
+  let activeBox = null;
+
+  // Interaction Drag state
+  let dragAction = null; // 'draw' | 'pan' | 'move' | 'resize'
+  let resizeHandle = null; // 'nw'|'n'|'ne'|'e'|'se'|'s'|'sw'|'w'
+  let dragStartScreen = { x: 0, y: 0 };
+  let dragStartImg = { x: 0, y: 0 };
+  let dragStartBox = null;
+  let lastPanScreen = { x: 0, y: 0 };
+
+  // ─── Coordinate Helpers ───────────────────────────────────────────────────
+  function screenToImg(screenX, screenY) {
+    return {
+      x: (screenX - panX) / zoom,
+      y: (screenY - panY) / zoom
+    };
+  }
+
+  function imgToScreen(imgX, imgY) {
+    return {
+      x: imgX * zoom + panX,
+      y: imgY * zoom + panY
+    };
+  }
+
+  function getMouseScreenPos(e) {
+    const r = SEL.getBoundingClientRect();
+    return {
+      x: e.clientX - r.left,
+      y: e.clientY - r.top
+    };
+  }
+
+  function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+  }
+
+  // ─── Resize Handle Hit-testing ────────────────────────────────────────────
+  const HANDLE_RADIUS_SCREEN = 7;
+
+  function getHandles(box) {
+    if (!box) return {};
+    const left = Math.min(box.left, box.right);
+    const right = Math.max(box.left, box.right);
+    const top = Math.min(box.top, box.bottom);
+    const bottom = Math.max(box.top, box.bottom);
+    const midX = (left + right) / 2;
+    const midY = (top + bottom) / 2;
+
+    return {
+      nw: { x: left, y: top },
+      n:  { x: midX, y: top },
+      ne: { x: right, y: top },
+      e:  { x: right, y: midY },
+      se: { x: right, y: bottom },
+      s:  { x: midX, y: bottom },
+      sw: { x: left, y: bottom },
+      w:  { x: left, y: midY }
+    };
+  }
+
+  function hitTestHandle(screenX, screenY, box) {
+    if (!box) return null;
+    const handles = getHandles(box);
+    for (const [name, imgPt] of Object.entries(handles)) {
+      const scrPt = imgToScreen(imgPt.x, imgPt.y);
+      const dist = Math.hypot(screenX - scrPt.x, screenY - scrPt.y);
+      if (dist <= HANDLE_RADIUS_SCREEN + 3) {
+        return name;
+      }
+    }
+    return null;
+  }
+
+  function isPointInsideBox(imgX, imgY, box) {
+    if (!box) return false;
+    const left = Math.min(box.left, box.right);
+    const right = Math.max(box.left, box.right);
+    const top = Math.min(box.top, box.bottom);
+    const bottom = Math.max(box.top, box.bottom);
+    return imgX >= left && imgX <= right && imgY >= top && imgY <= bottom;
+  }
+
+  function getCursorForHandle(handle) {
+    switch (handle) {
+      case 'nw': case 'se': return 'nwse-resize';
+      case 'ne': case 'sw': return 'nesw-resize';
+      case 'n':  case 's':  return 'ns-resize';
+      case 'e':  case 'w':  return 'ew-resize';
+      default: return 'default';
+    }
+  }
+
+  // ─── Rendering ────────────────────────────────────────────────────────────
+  function redraw() {
+    if (!imgLoaded) return;
+
+    // Viewport dimensions
+    viewW = wrapper.clientWidth || 960;
+    viewH = wrapper.clientHeight || 560;
+    BG.width = viewW; BG.height = viewH;
+    SEL.width = viewW; SEL.height = viewH;
+
+    // 1. Draw Image Layer (BG)
+    bgCtx.save();
+    bgCtx.fillStyle = "#090d16";
+    bgCtx.fillRect(0, 0, viewW, viewH);
+    bgCtx.translate(panX, panY);
+    bgCtx.scale(zoom, zoom);
+    // Draw checkerboard or image
+    bgCtx.drawImage(img, 0, 0, cw, ch);
+    // Image boundary border
+    bgCtx.strokeStyle = "#334155";
+    bgCtx.lineWidth = 1 / zoom;
+    bgCtx.strokeRect(0, 0, cw, ch);
+    bgCtx.restore();
+
+    // 2. Draw Selections Layer (SEL)
+    selCtx.save();
+    selCtx.clearRect(0, 0, viewW, viewH);
+    selCtx.translate(panX, panY);
+    selCtx.scale(zoom, zoom);
+
+    // 2a. Draw Confirmed Boxes from previous selections
+    drawConfirmedBoxes(selCtx);
+
+    // 2b. Draw Current Active Selection Box
+    if (activeBox) {
+      drawActiveBox(selCtx);
+    }
+    selCtx.restore();
+
+    // 3. Update Statusbar
+    updateStatusUI();
+  }
+
+  function drawConfirmedBoxes(ctx) {
+    if (!confirmedSelections) return;
+    for (const [cat, boxes] of Object.entries(confirmedSelections)) {
+      if (!boxes) continue;
+      const boxList = Array.isArray(boxes) ? boxes : [boxes];
+      const color = categoryColors[cat] || "#94a3b8";
+
+      for (let i = 0; i < boxList.length; i++) {
+        const b = boxList[i];
+        if (!b) continue;
+        const bw = b.w !== undefined ? b.w : (b.size || 0);
+        const bh = b.h !== undefined ? b.h : (b.size || 0);
+        // Map native coordinates to display image coordinates
+        const bx = (b.x * cw) / origW;
+        const by = (b.y * ch) / origH;
+        const b_width = (bw * cw) / origW;
+        const b_height = (bh * ch) / origH;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(1.5, 2.2 / zoom);
+        ctx.setLineDash([4 / zoom, 2 / zoom]);
+        ctx.strokeRect(bx, by, b_width, b_height);
+
+        ctx.fillStyle = color + "26"; // 15% opacity hex
+        ctx.fillRect(bx, by, b_width, b_height);
+
+        // Label
+        const labelText = `#${i + 1} ${cat} (${Math.round(bw)}×${Math.round(bh)})`;
+        const fontSize = Math.max(10, Math.min(14, 12 / zoom));
+        ctx.font = `600 ${fontSize}px 'Segoe UI', sans-serif`;
+        const textMetrics = ctx.measureText(labelText);
+        const pad = 3 / zoom;
+        const textH = fontSize * 1.1;
+
+        ctx.setLineDash([]);
+        ctx.fillStyle = color;
+        ctx.fillRect(bx, Math.max(0, by - textH - pad * 2), textMetrics.width + pad * 2, textH + pad * 2);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(labelText, bx + pad, Math.max(textH, by - pad));
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawActiveBox(ctx) {
+    const left = Math.min(activeBox.left, activeBox.right);
+    const right = Math.max(activeBox.left, activeBox.right);
+    const top = Math.min(activeBox.top, activeBox.bottom);
+    const bottom = Math.max(activeBox.top, activeBox.bottom);
+    const w = right - left;
+    const h = bottom - top;
+
+    ctx.save();
+    // Shaded backdrop outside selection
+    // Active box fill
+    ctx.fillStyle = activeColor + "33"; // 20% alpha
+    ctx.fillRect(left, top, w, h);
+
+    // Active box outline
+    ctx.strokeStyle = activeColor;
+    ctx.lineWidth = Math.max(2, 2.8 / zoom);
+    ctx.setLineDash([]);
+    ctx.strokeRect(left, top, w, h);
+
+    // Dimension badge above box
+    const nativeCoords = getNativeCoordinates(activeBox);
+    const badgeText = `${activeCategory} · ${nativeCoords.w} × ${nativeCoords.h} px`;
+    const fontSize = Math.max(10, Math.min(14, 12 / zoom));
+    ctx.font = `bold ${fontSize}px 'Segoe UI', sans-serif`;
+    const tm = ctx.measureText(badgeText);
+    const pad = 4 / zoom;
+    const badgeH = fontSize * 1.2;
+
+    ctx.fillStyle = activeColor;
+    ctx.fillRect(left, Math.max(0, top - badgeH - pad), tm.width + pad * 2, badgeH + pad);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(badgeText, left + pad, Math.max(fontSize, top - pad));
+
+    // Draw 8 Resize Handles
+    const handles = getHandles(activeBox);
+    const hr = HANDLE_RADIUS_SCREEN / zoom;
+
+    for (const [name, pt] of Object.entries(handles)) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, hr, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.lineWidth = 1.5 / zoom;
+      ctx.strokeStyle = activeColor;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  // ─── Native Coordinate Calculation ────────────────────────────────────────
+  function getNativeCoordinates(box) {
+    if (!box) return { x: 0, y: 0, w: 0, h: 0 };
+    const left = Math.min(box.left, box.right);
+    const right = Math.max(box.left, box.right);
+    const top = Math.min(box.top, box.bottom);
+    const bottom = Math.max(box.top, box.bottom);
+
+    const x = Math.round((left * origW) / cw);
+    const y = Math.round((top * origH) / ch);
+    const w = Math.round((right * origW) / cw) - x;
+    const h = Math.round((bottom * origH) / ch) - y;
+
+    return {
+      x: Math.max(0, Math.min(x, origW - 1)),
+      y: Math.max(0, Math.min(y, origH - 1)),
+      w: Math.max(0, Math.min(w, origW - x)),
+      h: Math.max(0, Math.min(h, origH - y)),
+    };
+  }
+
+  function updateStatusUI() {
+    document.getElementById("zoomVal").textContent = `${Math.round(zoom * 100)}%`;
+    document.getElementById("modeVal").textContent = currentMode === "pan" ? "✋ Pan" : "✏️ Draw";
+
+    if (activeBox) {
+      const native = getNativeCoordinates(activeBox);
+      const left = Math.min(activeBox.left, activeBox.right);
+      const top = Math.min(activeBox.top, activeBox.bottom);
+      const w = Math.max(activeBox.left, activeBox.right) - left;
+      const h = Math.max(activeBox.bottom, activeBox.top) - top;
+
+      document.getElementById("coordNative").textContent = `(x=${native.x}, y=${native.y})`;
+      document.getElementById("coordDims").textContent = `${native.w} × ${native.h} native pixels (${(native.w * native.h).toLocaleString()} total) · ${Math.round(w)} × ${Math.round(h)} preview pixels`;
+
+      const isValid = native.w >= 1 && native.h >= 1;
+      document.getElementById("btnConfirm").disabled = !isValid;
+      if (!isValid) {
+        document.getElementById("coordDims").textContent += " ⚠️ Minimum 1×1 native px";
+      }
+    } else {
+      document.getElementById("coordNative").textContent = "—";
+      document.getElementById("coordDims").textContent = "—";
+      document.getElementById("btnConfirm").disabled = true;
+    }
+  }
+
+  // ─── Zoom and View Controls ───────────────────────────────────────────────
+  function zoomAt(screenX, screenY, factor) {
+    const newZoom = clamp(zoom * factor, 0.3, 12.0);
+    panX = screenX - (screenX - panX) * (newZoom / zoom);
+    panY = screenY - (screenY - panY) * (newZoom / zoom);
+    zoom = newZoom;
+    redraw();
+  }
+
+  function fitToView() {
+    if (!imgLoaded) return;
+    viewW = wrapper.clientWidth || 960;
+    viewH = wrapper.clientHeight || 560;
+    const scale = Math.min(viewW / cw, viewH / ch) * 0.96;
+    zoom = scale;
+    panX = (viewW - cw * zoom) / 2;
+    panY = (viewH - ch * zoom) / 2;
+    redraw();
+  }
+
+  function resetView() {
+    if (!imgLoaded) return;
+    zoom = 1.0;
+    viewW = wrapper.clientWidth || 960;
+    viewH = wrapper.clientHeight || 560;
+    panX = (viewW - cw) / 2;
+    panY = (viewH - ch) / 2;
+    redraw();
+  }
+
+  // ─── Mouse and Touch Event Handlers ───────────────────────────────────────
+  SEL.addEventListener("wheel", function(e) {
+    e.preventDefault();
+    const pos = getMouseScreenPos(e);
+    const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
+    zoomAt(pos.x, pos.y, factor);
+  }, { passive: false });
+
+  window.addEventListener("keydown", function(e) {
+    if (e.code === "Space" && !isSpacePressed) {
+      isSpacePressed = true;
+      SEL.style.cursor = "grab";
+    }
+  });
+
+  window.addEventListener("keyup", function(e) {
+    if (e.code === "Space") {
+      isSpacePressed = false;
+      SEL.style.cursor = currentMode === "pan" ? "grab" : "crosshair";
+    }
+  });
+
+  SEL.addEventListener("pointerdown", function(e) {
+    if (e.button !== 0 && e.button !== 1) return; // Left or Middle click
+    SEL.setPointerCapture(e.pointerId);
+
+    const pos = getMouseScreenPos(e);
+    const imgPos = screenToImg(pos.x, pos.y);
+    const clampedImgPos = {
+      x: clamp(imgPos.x, 0, cw),
+      y: clamp(imgPos.y, 0, ch)
+    };
+
+    // Check if middle click OR spacebar OR pan mode active
+    if (e.button === 1 || isSpacePressed || currentMode === "pan") {
+      dragAction = "pan";
+      lastPanScreen = { x: pos.x, y: pos.y };
+      SEL.style.cursor = "grabbing";
+      return;
+    }
+
+    // Check hit on existing active box handles
+    if (activeBox) {
+      const handle = hitTestHandle(pos.x, pos.y, activeBox);
+      if (handle) {
+        dragAction = "resize";
+        resizeHandle = handle;
+        dragStartScreen = { x: pos.x, y: pos.y };
+        dragStartImg = clampedImgPos;
+        dragStartBox = { ...activeBox };
+        SEL.style.cursor = getCursorForHandle(handle);
+        return;
+      }
+
+      // Check hit inside box for repositioning
+      if (isPointInsideBox(imgPos.x, imgPos.y, activeBox)) {
+        dragAction = "move";
+        dragStartScreen = { x: pos.x, y: pos.y };
+        dragStartImg = clampedImgPos;
+        dragStartBox = { ...activeBox };
+        SEL.style.cursor = "move";
+        return;
+      }
+    }
+
+    // Otherwise: Start drawing a new box
+    dragAction = "draw";
+    dragStartImg = clampedImgPos;
+    activeBox = {
+      left: clampedImgPos.x,
+      top: clampedImgPos.y,
+      right: clampedImgPos.x,
+      bottom: clampedImgPos.y
+    };
+    redraw();
+  });
+
+  SEL.addEventListener("pointermove", function(e) {
+    const pos = getMouseScreenPos(e);
+    const imgPos = screenToImg(pos.x, pos.y);
+    const clampedImgPos = {
+      x: clamp(imgPos.x, 0, cw),
+      y: clamp(imgPos.y, 0, ch)
+    };
+
+    if (!dragAction) {
+      // Update cursor based on hover
+      if (isSpacePressed || currentMode === "pan") {
+        SEL.style.cursor = "grab";
+      } else if (activeBox) {
+        const handle = hitTestHandle(pos.x, pos.y, activeBox);
+        if (handle) {
+          SEL.style.cursor = getCursorForHandle(handle);
+        } else if (isPointInsideBox(imgPos.x, imgPos.y, activeBox)) {
+          SEL.style.cursor = "move";
+        } else {
+          SEL.style.cursor = "crosshair";
+        }
+      } else {
+        SEL.style.cursor = "crosshair";
+      }
+      return;
+    }
+
+    if (dragAction === "pan") {
+      panX += pos.x - lastPanScreen.x;
+      panY += pos.y - lastPanScreen.y;
+      lastPanScreen = { x: pos.x, y: pos.y };
+      redraw();
+      return;
+    }
+
+    if (dragAction === "draw") {
+      activeBox.right = clampedImgPos.x;
+      activeBox.bottom = clampedImgPos.y;
+      redraw();
+      return;
+    }
+
+    if (dragAction === "move" && dragStartBox) {
+      const dx = clampedImgPos.x - dragStartImg.x;
+      const dy = clampedImgPos.y - dragStartImg.y;
+      const w = dragStartBox.right - dragStartBox.left;
+      const h = dragStartBox.bottom - dragStartBox.top;
+
+      let newLeft = dragStartBox.left + dx;
+      let newTop = dragStartBox.top + dy;
+
+      // Keep inside image boundaries
+      if (newLeft < 0) newLeft = 0;
+      if (newTop < 0) newTop = 0;
+      if (newLeft + w > cw) newLeft = cw - w;
+      if (newTop + h > ch) newTop = ch - h;
+
+      activeBox = {
+        left: newLeft,
+        top: newTop,
+        right: newLeft + w,
+        bottom: newTop + h
+      };
+      redraw();
+      return;
+    }
+
+    if (dragAction === "resize" && dragStartBox && resizeHandle) {
+      const curX = clampedImgPos.x;
+      const curY = clampedImgPos.y;
+      let { left, top, right, bottom } = dragStartBox;
+
+      if (resizeHandle.includes('w')) left = Math.min(curX, right - 2);
+      if (resizeHandle.includes('e')) right = Math.max(curX, left + 2);
+      if (resizeHandle.includes('n')) top = Math.min(curY, bottom - 2);
+      if (resizeHandle.includes('s')) bottom = Math.max(curY, top + 2);
+
+      activeBox = { left, top, right, bottom };
+      redraw();
+      return;
+    }
+  });
+
+  SEL.addEventListener("pointerup", function(e) {
+    if (!dragAction) return;
+
+    if (dragAction === "draw" || dragAction === "resize" || dragAction === "move") {
+      if (activeBox) {
+        // Normalize box coordinates (left < right, top < bottom)
+        const l = Math.min(activeBox.left, activeBox.right);
+        const r = Math.max(activeBox.left, activeBox.right);
+        const t = Math.min(activeBox.top, activeBox.bottom);
+        const b = Math.max(activeBox.top, activeBox.bottom);
+        activeBox = { left: l, top: t, right: r, bottom: b };
+
+        const native = getNativeCoordinates(activeBox);
+        if (native.w < 1 || native.h < 1) {
+          activeBox = null;
+        }
+      }
+    }
+
+    dragAction = null;
+    resizeHandle = null;
+    dragStartBox = null;
+    SEL.style.cursor = currentMode === "pan" ? "grab" : "crosshair";
+    redraw();
+  });
+
+  // ─── Button Listeners ─────────────────────────────────────────────────────
+  document.getElementById("btnModeDraw").onclick = () => {
+    currentMode = "draw";
+    document.getElementById("btnModeDraw").classList.add("active");
+    document.getElementById("btnModePan").classList.remove("active");
+    SEL.style.cursor = "crosshair";
+    redraw();
+  };
+
+  document.getElementById("btnModePan").onclick = () => {
+    currentMode = "pan";
+    document.getElementById("btnModePan").classList.add("active");
+    document.getElementById("btnModeDraw").classList.remove("active");
+    SEL.style.cursor = "grab";
+    redraw();
+  };
+
+  document.getElementById("btnZoomIn").onclick = () => {
+    zoomAt(viewW / 2, viewH / 2, 1.25);
+  };
+
+  document.getElementById("btnZoomOut").onclick = () => {
+    zoomAt(viewW / 2, viewH / 2, 0.8);
+  };
+
+  document.getElementById("btnZoomReset").onclick = () => {
+    resetView();
+  };
+
+  document.getElementById("btnFit").onclick = () => {
+    fitToView();
+  };
+
+  document.getElementById("btnClear").onclick = () => {
+    activeBox = null;
+    redraw();
+    sendValue(null);
+  };
+
+  document.getElementById("btnConfirm").onclick = () => {
+    if (!activeBox) return;
+    const native = getNativeCoordinates(activeBox);
+    if (native.w < 1 || native.h < 1) {
+      alert("Select at least one native pixel in each dimension.");
+      return;
+    }
+
+    const payload = {
+      x: native.x,
+      y: native.y,
+      w: native.w,
+      h: native.h,
+      confirmed: true,
+      category: activeCategory
+    };
+
+    // Visual feedback
+    document.getElementById("btnConfirm").disabled = true;
+    sendValue(payload);
+  };
+
+  // Window resize handler
+  window.addEventListener("resize", () => {
+    redraw();
+    sendHeight();
+  });
+
+  // ─── Apply Args from Python ───────────────────────────────────────────────
+  function init(args) {
+    applyArgs(args);
+  }
+
+  function update(args) {
+    applyArgs(args);
+  }
+
+  function applyArgs(args) {
+    activeCategory = args.category || "Unknown";
+    activeColor = args.color || "#00b4d8";
+    if (args.category_colors) {
+      categoryColors = { ...categoryColors, ...args.category_colors };
+    }
+
+    const badge = document.getElementById("catBadge");
+    badge.textContent = `Selecting: ${activeCategory}`;
+    badge.style.background = activeColor;
+
+    origW = args.orig_w || 1;
+    origH = args.orig_h || 1;
+    confirmedSelections = args.confirmed_selections || {};
+
+    const dataUrl = args.image_data_url || "";
+    if (dataUrl && img.src !== dataUrl) {
+      imgLoaded = false;
+      img.onload = () => {
+        imgLoaded = true;
+        cw = img.naturalWidth;
+        ch = img.naturalHeight;
+        fitToView();
+        sendHeight();
+      };
+      img.src = dataUrl;
+    } else if (imgLoaded) {
+      redraw();
+    }
+  }
+
+  // Signal component readiness
+  sendReady();
+  sendHeight();
+})();
+</script>
+</body>
+</html>
